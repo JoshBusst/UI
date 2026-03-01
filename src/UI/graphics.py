@@ -1,8 +1,10 @@
-from numpy import rec
+from numpy import array, rec, linspace, sin
+import matplotlib.pyplot as plt
+from matplotlib import dates as mdates
 import pygame
 from datetime import datetime
 from abc import ABC, abstractmethod
-from .worker import log, Mailbox, _content_interface
+from UI.worker import log, Mailbox, _content_interface
 
 
 
@@ -29,9 +31,9 @@ DEFAULT_THEME = {
 
 
 # ==================== FONTS ====================
-FONT_SMALL = pygame.font.SysFont("segoeui", 18)
+FONT_SMALL = pygame.font.SysFont("segoeui", 12)
 FONT_MED = pygame.font.SysFont("segoeui", 24)
-FONT_LARGE = pygame.font.SysFont("segoeui", 34, bold=True)
+FONT_LARGE = pygame.font.SysFont("segoeui", 36, bold=True)
 
 HEADER_HEIGHT: int = 120
 FOOTER_HEIGHT: int = 90
@@ -49,9 +51,29 @@ MOUSE_BUTTON_RIGHT: int = 3
 MOUSE_EVENTS: tuple = (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION)
 
 
+
+def localEvent(event: pygame.event.Event, rect: pygame.Rect) -> pygame.event.Event:
+    """Relativise an event position to a local rect."""
+    if event.type == pygame.MOUSEMOTION:
+        return pygame.event.Event(event.type, {
+            'pos': (event.pos[0] - rect.x, event.pos[1] - rect.y),
+            'rel': event.rel,
+            'buttons': event.buttons,
+        })
+    else:
+        return pygame.event.Event(event.type, {
+            'pos': (event.pos[0] - rect.x, event.pos[1] - rect.y),
+            'button': event.button,
+        })
+
+
+
 # the base UIElement class
 class UIElement(ABC):
     def __init__(self, rect: pygame.Rect):
+        self._render: bool = True
+        self._surface: pygame.Surface = None
+
         self.rect: pygame.Rect = rect
         self.interactable: bool = True
         self.visible: bool = True
@@ -64,129 +86,238 @@ class UIElement(ABC):
     def handle_event(self, event: pygame.event.Event) -> None:
         pass
 
-# a clickable button
+
+
 class Button(UIElement):
+    """A toggle button. State is toggled on each click, and button is visually depressed while active."""
+
     def __init__(self, rect: pygame.Rect, text: str="", callback: callable=None):
         super().__init__(rect)
 
-        self.anim_rect: pygame.Rect = rect.copy() # used for animation
+        self._anim_rect: pygame.Rect = rect.copy() # used for animation
+        self._callback: callable = callback
+        self._pressed: bool = False
+        self._mouse_hover: bool = False
+        self._surface: pygame.Surface = pygame.Surface(self.rect.size, pygame.SRCALPHA)
+
         self.text: str = text
-        self.callback: callable = callback
-
-        self.pressed: bool = False
-        self.mouse_hover: bool = False
-
-    def draw(self, surface: pygame.Surface) -> None:
-        self.rect = self.anim_rect
-
-        if self.pressed:
-            colour = DEFAULT_THEME["elem_pressed"]
-            self.rect = self.anim_rect.move(0, 2)
-        elif self.mouse_hover:
-            colour = DEFAULT_THEME["elem_hover"]
-        else:
-            colour = DEFAULT_THEME["elem"]
-
-        pygame.draw.rect(surface, colour, self.rect, border_radius=14)
-
-        label = FONT_MED.render(self.text, True, DEFAULT_THEME["elem_text"])
-        surface.blit(label, label.get_rect(center=self.rect.center))
-
-    def handle_event(self, event: pygame.event.Event) -> None:
-        if event.type not in [pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION]:
-            return
-        
-        if self.anim_rect.collidepoint(event.pos):
-            self.mouse_hover = True
-
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == MOUSE_BUTTON_LEFT:
-                self.pressed = True
-
-            elif event.type == pygame.MOUSEBUTTONUP and event.button == MOUSE_BUTTON_LEFT and self.pressed:
-                self.pressed = False
-                self.callback()
-        else:
-            self.mouse_hover = False
-            self.pressed = False
-
-# a clickable button
-class ButtonSolidState(Button):
-    def __init__(self, rect: pygame.Rect, text: str=""):
-        super().__init__(rect, text=text)
-
-        self.callback: callable = self.toggleState
         self.state: bool = False
+        self.font: pygame.font.Font = FONT_MED
     
-    def draw(self, surface: pygame.Surface) -> None:
-        self.rect = self.anim_rect
+    def rerender(self) -> None:
+        self._anim_rect = self.rect.copy()
 
-        if self.pressed:
+        if self._pressed:
             colour = DEFAULT_THEME["elem_pressed"]
-            self.rect = self.anim_rect.move(0, 4)
+            self._anim_rect = self._anim_rect.move(0, 4)
         elif self.state:
             colour = DEFAULT_THEME["elem_clicked"]
-            self.rect = self.anim_rect.move(0, 2)
-        elif self.mouse_hover:
+            self._anim_rect = self._anim_rect.move(0, 2)
+        elif self._mouse_hover:
             colour = DEFAULT_THEME["elem_hover"]
         else:
             colour = DEFAULT_THEME["elem"]
 
-        pygame.draw.rect(surface, colour, self.rect, border_radius=14)
+        # render button background and label text
+        pygame.draw.rect(self._surface, colour, pygame.Rect(0,0,*self._anim_rect.size), border_radius=14)
+        textSurface: pygame.surface = FONT_MED.render(self.text, True, DEFAULT_THEME["elem_text"])
 
-        label = FONT_MED.render(self.text, True, DEFAULT_THEME["elem_text"])
-        surface.blit(label, label.get_rect(center=self.rect.center))
-
-    def toggleState(self) -> None:
-        self.state = not self.state
-
-
-class Checkbox(UIElement):
-    def __init__(self, rect: pygame.Rect):
-        super().__init__(rect)
-
-        self.anim_rect: pygame.Rect = self.rect.copy()
-        self.checked: bool = False
-        self.pressed: bool = False
-        self.mouse_hover: bool = False
-        self.surface: pygame.Surface = pygame.Surface(self.rect.size, pygame.SRCALPHA)
+        self._surface.blit(textSurface, textSurface.get_rect(center=self._surface.get_rect().center))
 
     def draw(self, surface: pygame.Surface) -> None:
-        self.rect = self.anim_rect
+        if self._render:
+            self._render = False
+            self.rerender()
 
-        self.surface.fill((255, 255, 255))
+        if self.visible:
+            surface.blit(self._surface, self._surface.get_rect(center=self._anim_rect.center))
+
+    def handle_event(self, event: pygame.event.Event) -> bool:
+        if event.type not in [pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION] or not self.interactable:
+            return False
+        
+        if self.rect.collidepoint(event.pos):
+            self._mouse_hover = True
+
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == MOUSE_BUTTON_LEFT:
+                self._pressed = True
+
+            elif event.type == pygame.MOUSEBUTTONUP and event.button == MOUSE_BUTTON_LEFT and self._pressed:
+                self._pressed = False
+                self.state = not self.state
+
+                if self.state:
+                    self._callback()
+                    return True
+        else:
+            self._mouse_hover = False
+            self._pressed = False
+
+        self._render = True
+        return False
+
+class Button_Tap(Button):
+    """A quick-tap button variant. State is not toggled, and button is only visually depressed while held."""
+
+    def __init__(self, rect, text = "", callback = None):
+        super().__init__(rect, text, callback)
+
+    def handle_event(self, event: pygame.event.Event) -> None:
+        super().handle_event(event)
+
+        if self.state:
+            self.state = False
+
+class Checkbox(Button):
+    def __init__(self, rect: pygame.Rect, text: str="", callback: callable=None, check_type: str="tick", font: pygame.font.Font=FONT_MED):
+        super().__init__(rect, text, callback)
+        self._type_renders: dict[str, callable] = {
+            "tick": self.render_tick,
+            "cross": self.render_cross,
+            "asterisk": self.render_asterisk,
+            "dash": self.render_dash,
+            "solid": self.render_solid,
+        }
+
+        self.check_type: str = check_type
+        self.box_padding: int = 20
+        self.box_colour: tuple = (0,0,0)
+        self.check_colour: tuple = (0,0,0)
+        self.text_colour: tuple = (0,0,0)
+        self.font: pygame.font.Font = font
+
+    def rerender(self) -> None:
+        """Render an animated checkbox surface."""
+
+        size = self.rect.h - self.box_padding
+        surface = pygame.Surface((size, size), pygame.SRCALPHA)
+
+
+        # --- Draw check mark ---
+        if self.state:
+            if self.check_type in self._type_renders:
+                self._type_renders[self.check_type](surface, size, self.check_colour)
+            else:
+                log(f"Unknown checkbox type '{self.check_type}'! Defaulting to tick.")
+                self._type_renders["tick"](surface, size, self.check_colour)
+        
+        # --- Scaled values ---
+        border_width = max(2, size // 12)
+
+        # --- render outer box ---
         pygame.draw.rect(
-            self.surface,
-            (0, 0, 0),
-            self.surface.get_rect(),
-            3,
+            surface,
+            self.box_colour,
+            pygame.Rect(0, 0, size, size),
+            border_width,
+            border_radius=size // 8,
         )
 
-        # depress slightly when clicked
-        if self.pressed:
-            self.anim_rect.move(0,2)
+        # render checkbox
+        self._surface.fill(DEFAULT_THEME["elem"])
+        pad: int = (self.rect.height - size) // 2
+        self._surface.blit(surface, (pad,pad))
+        
+        # render display text
+        textSurface: pygame.surface = self.font.render(self.text, True, self.text_colour)
+        self._surface.blit(textSurface, (pad*2 + size, (self.rect.height - textSurface.get_height()) // 2))
 
-        if self.checked:
-            padding = self.rect.h // 4
-            pygame.draw.line(
-                self.surface,
-                (0, 0, 0),
-                (padding, self.rect.h // 2),
-                (self.rect.h // 2 - 2, self.rect.h - padding),
-                3,
-            )
-            pygame.draw.line(
-                self.surface,
-                (0, 0, 0),
-                (self.rect.h // 2 - 2, self.rect.h - padding),
-                (self.rect.h - padding, padding),
-                3,
-            )
+    @staticmethod
+    def render_tick(surface: pygame.Surface, size: int, colour: tuple) -> None:
+        tick_width = max(2, size // 10)
+    
+        # Tick key points (percentage based)
+        start = (size * 0.28, size * 0.55)
+        mid   = (size * 0.45, size * 0.72)
+        end   = (size * 0.75, size * 0.30)
 
-            # pygame.draw.rect(boxSurf, (100,100,100), self.rect, border_radius=14)
-        # label = FONT_MED.render(self.text, True, DEFAULT_THEME["elem_text"])
-        # surface.blit(label, label.get_rect(center=self.rect.center))
+        pygame.draw.line(surface, colour, start, mid, tick_width)
 
-        surface.blit(self.surface, self.rect.topleft)
+        # Animate second segment
+        x = mid[0] + (end[0] - mid[0])
+        y = mid[1] + (end[1] - mid[1])
+        pygame.draw.line(surface, colour, mid, (x, y), tick_width)
+    
+    @staticmethod
+    def render_cross(surface: pygame.Surface, size: int, colour: tuple) -> None:
+        width = max(2, size // 10)
+
+        padding = size * 0.25
+
+        pygame.draw.line(
+            surface,
+            colour,
+            (padding, padding),
+            (size - padding, size - padding),
+            width,
+        )
+
+        pygame.draw.line(
+            surface,
+            colour,
+            (size - padding, padding),
+            (padding, size - padding),
+            width,
+        )
+
+    @staticmethod
+    def render_asterisk(surface: pygame.Surface, size: int, colour: tuple) -> None:
+        width = max(2, size // 12)
+        center = size * 0.5
+        pad_diag = size * 0.25
+        pad_straight: int = size * 0.20
+
+        # Horizontal
+        pygame.draw.line(surface, colour,
+                        (pad_straight, center),
+                        (size - pad_straight, center),
+                        width)
+
+        # Vertical
+        pygame.draw.line(surface, colour,
+                        (center, pad_straight),
+                        (center, size - pad_straight),
+                        width)
+
+        # Diagonal 1
+        pygame.draw.line(surface, colour,
+                        (pad_diag, pad_diag),
+                        (size - pad_diag, size - pad_diag),
+                        width)
+
+        # Diagonal 2
+        pygame.draw.line(surface, colour,
+                        (size - pad_diag, pad_diag),
+                        (pad_diag, size - pad_diag),
+                        width)
+
+    @staticmethod
+    def render_dash(surface: pygame.Surface, size: int, colour: tuple) -> None:
+        width = max(2, size // 10)
+
+        y = size * 0.5
+        start = (size * 0.25, y)
+        end   = (size * 0.75, y)
+
+        pygame.draw.line(surface, colour, start, end, width)
+
+    @staticmethod
+    def render_solid(surface: pygame.Surface, size: int, colour: tuple) -> None:
+        padding = size * 0
+
+        rect = pygame.Rect(
+            padding,
+            padding,
+            size - padding * 2,
+            size - padding * 2,
+        )
+
+        pygame.draw.rect(surface, colour, rect, border_radius=size // 8)
+
+    @staticmethod
+    def checkbox_types() -> list[str]:
+        return list(Checkbox._type_renders.keys())
+
 
 # a simple text label
 class Label(UIElement):
@@ -256,19 +387,7 @@ class Canvas(UIElement):
             return
         
         # relativise event position to local coords
-        local_event: pygame.event.Event
-
-        if event.type == pygame.MOUSEMOTION:
-            local_event = pygame.event.Event(event.type, {
-                'pos': (event.pos[0] - self.rect.x, event.pos[1] - self.rect.y),
-                'rel': event.rel,
-                'buttons': event.buttons,
-            })
-        else:
-            local_event = pygame.event.Event(event.type, {
-                'pos': (event.pos[0] - self.rect.x, event.pos[1] - self.rect.y),
-                'button': event.button,
-            })
+        local_event: pygame.event.Event = localEvent(event, self.rect)
 
         # handle event for each elem
         elem: UIElement
@@ -293,17 +412,67 @@ class Canvas(UIElement):
 
 
 
+class SelectionPane(Canvas):
+    def __init__(self, rect: pygame.Rect, multi_select: bool=False):
+        super().__init__(rect, DEFAULT_THEME)
+
+        pad: int = 20
+        self._add_elem(
+            *[Checkbox(
+                pygame.Rect(pad, i*45 + pad, self.rect.w - 2*pad, 40),
+                f"Checkbox {i}",
+                lambda i=i: log(f"Checkbox {i} toggled!"),
+                check_type="solid",
+            ) for i in range(5)]
+        )
+
+        self.handle_event = super().handle_event if multi_select else self.handle_event_single_select
+
+    def draw(self, surface: pygame.Surface) -> None:
+        self._surface.fill(DEFAULT_THEME["panel"])
+
+        elem: UIElement
+        for elem in self.elems:
+            if elem.visible:
+                elem.draw(self._surface)
+
+        surface.blit(self._surface, self.rect.topleft)
+
+    def handle_event_single_select(self, event: pygame.event.Event) -> None:
+        if event.type not in MOUSE_EVENTS or not self.interactable:
+            return
+        
+        # relativise event position to local coords
+        local_event: pygame.event.Event = localEvent(event, self.rect)
+
+        # handle event for each elem
+        outputs: list = []
+        elem: Checkbox
+        for elem in self.elems:
+            if elem.interactable:
+                outputs.append(elem.handle_event(local_event))
+        
+        if any(outputs):
+            for i, output in enumerate(outputs):
+                if output:
+                    for j, elem in enumerate(self.elems):
+                        elem._render = True
+                        if i != j:
+                            elem.state = False
+                    
+                    break
+
+    def get_selected(self) -> list[int]:
+        return [i for i, elem in enumerate(self.elems) if isinstance(elem, Checkbox) and elem.state]
+
 # the default header
 class Header(Canvas):
     def __init__(self, title: str, rect: pygame.Rect):
         super().__init__(rect)
         self.title: str = title
 
-        self._init_contents()
-
-    def _init_contents(self) -> None:
         self._add_elem(
-            Button(
+            Button_Tap(
                 rect=pygame.Rect(30, 35, 120, 50),
                 text="Home",
                 callback=lambda: goto("home")
@@ -329,11 +498,9 @@ class Header(Canvas):
 class Footer(Canvas):
     def __init__(self, rect: pygame.Rect):
         super().__init__(rect)
-        self._init_contents()
 
-    def _init_contents(self) -> None:
         self._add_elem(
-            Button(
+            Button_Tap(
                 rect=pygame.Rect(self.rect.width - 140, 20, 120, 50),
                 text="Settings",
                 callback=lambda: goto("settings")
@@ -346,14 +513,11 @@ class Footer(Canvas):
 
 # the default page
 class Page(Canvas):
-    def __init__(self, title: str):
-        self.rect = pygame.Rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT)
+    def __init__(self, title: str, dims: tuple=(SCREEN_WIDTH, SCREEN_HEIGHT)):
+        self.rect = pygame.Rect(0, 0, *dims)
         super().__init__(self.rect)
         self.title: str = title
 
-        self._init_contents()
-
-    def _init_contents(self) -> None:
         self._add_elem(
             Header(self.title, pygame.Rect(0, 0, self.rect.width, HEADER_HEIGHT)),
             Footer(pygame.Rect(0, self.rect.height - FOOTER_HEIGHT, self.rect.width, FOOTER_HEIGHT)),
@@ -363,57 +527,110 @@ class Page(Canvas):
         surface.fill(DEFAULT_THEME["bg"])
         super().draw(surface)
 
-
-
-# ==================== PAGES ====================
-class HomePage(Page):
-    def __init__(self):
-        super().__init__("Home")
-
-        margin: int = 90
-        gap: int = 40
-        top: int = 60 + HEADER_HEIGHT
-        w: int = (SCREEN_WIDTH - margin * 2 - gap) // 2
-        h: int = 210
-
-        self._add_elem(
-            Button(rect=pygame.Rect(margin, top, w, h), text="Drills", callback=lambda: goto("drills")),
-            Button(rect=pygame.Rect(margin + w + gap, top, w, h), text="Analytics", callback=lambda: goto("analytics")),
-            Button(rect=pygame.Rect(margin, top + h + gap, w, h), text="Explore", callback=lambda: goto("explore")),
-            Button(rect=pygame.Rect(margin + w + gap, top + h + gap, w, h), text="Engine", callback=lambda: goto("engine")),
-        )
-
-class DrillsPage(Page):
-    def __init__(self):
-        super().__init__("Drills")
-
-        pad: int = 30
-        height: int = SCREEN_HEIGHT - HEADER_HEIGHT - FOOTER_HEIGHT - pad * 2
-        rect: pygame.Rect = pygame.Rect(pad, HEADER_HEIGHT + pad, SCREEN_WIDTH - pad * 2, height)
-
-        self._add_elem(
-            ContentPane(rect=rect, channel="BASIC_APP"),
-        )
-
-class AnalyticsPage(Page):
-    def __init__(self):
-        super().__init__("Analytics")
-
-        self._add_elem(
-            # ButtonSolidState(rect=pygame.Rect(200,200,50,50)),
-        )
-
-class ExplorePage(Page):
-    def __init__(self):
-        super().__init__("Explore")
-
-class EnginePage(Page):
-    def __init__(self):
-        super().__init__("Engine")
+class TestPage(Page):
+    def __init__(self, title: str, dims: tuple=(SCREEN_WIDTH, SCREEN_HEIGHT)):
+        super().__init__(title, dims)
+        
     
-class SettingsPage(Page):
-    def __init__(self):
-        super().__init__("Settings")
+    def handle_event(self, event: pygame.event.Event) -> None:
+        super().handle_event(event)
+
+        for child in self.elems:
+            if isinstance(child, Checkbox) and child.state:
+                log(f"Checkbox '{child.text}' is currently active.")
+
+class Chart(UIElement):
+    def __init__(self, rect: pygame.Rect, data: list=None):
+        super().__init__(rect)
+        self._surface = pygame.Surface(self.rect.size, pygame.SRCALPHA)
+
+        self.data: list[tuple[datetime, float]] = data or []
+        self.bg_color: tuple = (0, 0, 0, 0)
+        self.line_color: tuple = DEFAULT_THEME["elem"]
+        self.point_color: tuple = DEFAULT_THEME["elem_hover"]
+        self.padding: int = 20
+        self.tick_color: tuple = DEFAULT_THEME["muted"]
+
+    def add_point(self, timestamp: datetime, value: float) -> None:
+        self.data.append((timestamp, value))
+        self._render = True
+
+    def _compute_points(self) -> list[tuple[int, int]]:
+        """Convert time/value pairs into pixel coordinates within the chart surface.
+
+        The points returned are relative to ``(0,0)`` of ``self._surface``; the
+        caller will blit the surface at ``self.rect.topleft`` when drawing.
+        Coordinates respect the configured ``padding`` inset.
+        """
+        if not self.data:
+            return []
+
+        pts = sorted(self.data, key=lambda t_v: t_v[0])
+        times, vals = zip(*pts)
+        t0 = times[0]
+        t1 = times[-1]
+        total = max((t1 - t0).total_seconds(), 1)
+
+        vmin = min(vals)
+        vmax = max(vals)
+        if vmin == vmax:
+            vmax = vmin + 1
+
+        inner_w = self.rect.w - 2 * self.padding
+        inner_h = self.rect.h - 2 * self.padding
+
+        points: list[tuple[int, int]] = []
+        for t, v in pts:
+            x_frac = (t - t0).total_seconds() / total
+            x = int(self.padding + x_frac * inner_w)
+
+            y_frac = (v - vmin) / (vmax - vmin)
+            y = int(self.padding + (inner_h - (y_frac * inner_h)))
+
+            points.append((x, y))
+
+        return points
+    
+    def _draw_axes(self) -> None:
+        """Draw x/y axes with a few notch ticks."""
+        w, h = self.rect.size
+        p = self.padding
+
+        # axes lines
+        pygame.draw.line(self._surface, self.tick_color, (p, h - p), (w - p, h - p), 1)
+        pygame.draw.line(self._surface, self.tick_color, (p, p), (p, h - p), 1)
+
+        # simple ticks: five evenly spaced
+        num_ticks = 5
+        for i in range(num_ticks + 1):
+            # x-axis ticks
+            tx = p + i * ((w - 2 * p) / num_ticks)
+            pygame.draw.line(self._surface, self.tick_color, (tx, h - p - 3), (tx, h - p + 3), 1)
+            # y-axis ticks
+            ty = p + i * ((h - 2 * p) / num_ticks)
+            pygame.draw.line(self._surface, self.tick_color, (p - 3, ty), (p + 3, ty), 1)
+
+    def rerender(self) -> None:
+        self._surface.fill(self.bg_color)
+        self._draw_axes()
+        pts = self._compute_points()
+
+        if len(pts) >= 2:
+            pygame.draw.aalines(self._surface, self.line_color, False, pts)
+
+        for p in pts:
+            pygame.draw.circle(self._surface, self.point_color, p, 4)
+
+    def draw(self, surface: pygame.Surface) -> None:
+        if self._render:
+            self._render = False
+            self.rerender()
+
+        surface.blit(self._surface, self.rect.topleft)
+
+    def handle_event(self, event: pygame.event.Event) -> None:
+        # this proof‑of‑concept chart does not react to events yet
+        self._render = True
 
 
 
@@ -430,32 +647,34 @@ def get_time_surface() -> pygame.Surface:
     return FONT_SMALL.render(now, True, DEFAULT_THEME["muted"])
 
 
-pages: dict[str, Page] = {
-    "home": HomePage(),
-    "drills": DrillsPage(),
-    "analytics": AnalyticsPage(),
-    "explore": ExplorePage(),
-    "engine": EnginePage(),
-    "settings": SettingsPage(),
-}
 
 goto("home")
+
 
 
 if __name__ == "__main__":
     pygame.init()
 
     SCREEN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption("Training App")
+    pygame.display.set_caption("Graphics Test")
     CLOCK = pygame.time.Clock()
 
-    pane = pygame.Surface((400,300))
-    pane.fill((200,200,200))
+    page: Page = TestPage("Test Page", (SCREEN_WIDTH, SCREEN_HEIGHT))
 
-    other = pygame.Surface((100,100))
-    other.fill((100,100,100))
+    # simple chart proof-of-concept, generate some fake timestamped data
+    from datetime import timedelta
+    now = datetime.now()
+    sample = [(now + timedelta(seconds=i * 5), i * 3.0 + (i % 2) * 2) for i in range(25)]
+    chart = Chart2(pygame.Rect(50, 150, 800, 400), data=sample)
+    page._add_elem(chart)
 
-    other.blit(pane, (50,50))
+    # pane = pygame.Surface((400,300))
+    # pane.fill((200,200,200))
+
+    # other = pygame.Surface((100,100))
+    # other.fill((100,100,100))
+
+    # other.blit(pane, (50,50))
 
     while True:
         for event in pygame.event.get():
@@ -463,7 +682,9 @@ if __name__ == "__main__":
                 pygame.quit()
                 exit()
 
+            page.handle_event(event)
+
         
-        SCREEN.blit(other, (100,100))
+        page.draw(SCREEN)
         pygame.display.flip()
         CLOCK.tick(50)
