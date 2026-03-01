@@ -665,7 +665,7 @@ if __name__ == "__main__":
     from datetime import timedelta
     now = datetime.now()
     sample = [(now + timedelta(seconds=i * 5), i * 3.0 + (i % 2) * 2) for i in range(25)]
-    chart = Chart2(pygame.Rect(50, 150, 800, 400), data=sample)
+    chart = Chart(pygame.Rect(50, 150, 800, 400), data=sample)
     page._add_elem(chart)
 
     # pane = pygame.Surface((400,300))
