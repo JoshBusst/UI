@@ -3,8 +3,8 @@ from datetime import datetime
 import pygame
 import sys
 
-from UI.graphics import FONT_SMALL
-from UI.worker import Application
+from UI.core.UIElements import FONT_SMALL
+from UI.core.worker import Application
 
 
 

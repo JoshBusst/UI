@@ -1,10 +1,7 @@
-from numpy import array, rec, linspace, sin
-import matplotlib.pyplot as plt
-from matplotlib import dates as mdates
 import pygame
 from datetime import datetime
 from abc import ABC, abstractmethod
-from UI.worker import log, Mailbox, _content_interface
+from UI.core.worker import log, Mailbox, _content_interface
 
 
 
@@ -152,6 +149,7 @@ class Button(UIElement):
         else:
             self._mouse_hover = False
             self._pressed = False
+            self._render = True
 
         self._render = True
         return False
@@ -319,6 +317,7 @@ class Checkbox(Button):
         return list(Checkbox._type_renders.keys())
 
 
+
 # a simple text label
 class Label(UIElement):
     def __init__(self, rect: pygame.Rect, text: str="", font: pygame.font.Font=FONT_MED, color: tuple=(255,255,255)):
@@ -470,6 +469,7 @@ class Header(Canvas):
     def __init__(self, title: str, rect: pygame.Rect):
         super().__init__(rect)
         self.title: str = title
+        self.forwardRelevant = False
 
         self._add_elem(
             Button_Tap(
@@ -498,6 +498,7 @@ class Header(Canvas):
 class Footer(Canvas):
     def __init__(self, rect: pygame.Rect):
         super().__init__(rect)
+        self.forwardRelevant = False
 
         self._add_elem(
             Button_Tap(
@@ -526,111 +527,6 @@ class Page(Canvas):
     def draw(self, surface: pygame.Surface) -> None:
         surface.fill(DEFAULT_THEME["bg"])
         super().draw(surface)
-
-class TestPage(Page):
-    def __init__(self, title: str, dims: tuple=(SCREEN_WIDTH, SCREEN_HEIGHT)):
-        super().__init__(title, dims)
-        
-    
-    def handle_event(self, event: pygame.event.Event) -> None:
-        super().handle_event(event)
-
-        for child in self.elems:
-            if isinstance(child, Checkbox) and child.state:
-                log(f"Checkbox '{child.text}' is currently active.")
-
-class Chart(UIElement):
-    def __init__(self, rect: pygame.Rect, data: list=None):
-        super().__init__(rect)
-        self._surface = pygame.Surface(self.rect.size, pygame.SRCALPHA)
-
-        self.data: list[tuple[datetime, float]] = data or []
-        self.bg_color: tuple = (0, 0, 0, 0)
-        self.line_color: tuple = DEFAULT_THEME["elem"]
-        self.point_color: tuple = DEFAULT_THEME["elem_hover"]
-        self.padding: int = 20
-        self.tick_color: tuple = DEFAULT_THEME["muted"]
-
-    def add_point(self, timestamp: datetime, value: float) -> None:
-        self.data.append((timestamp, value))
-        self._render = True
-
-    def _compute_points(self) -> list[tuple[int, int]]:
-        """Convert time/value pairs into pixel coordinates within the chart surface.
-
-        The points returned are relative to ``(0,0)`` of ``self._surface``; the
-        caller will blit the surface at ``self.rect.topleft`` when drawing.
-        Coordinates respect the configured ``padding`` inset.
-        """
-        if not self.data:
-            return []
-
-        pts = sorted(self.data, key=lambda t_v: t_v[0])
-        times, vals = zip(*pts)
-        t0 = times[0]
-        t1 = times[-1]
-        total = max((t1 - t0).total_seconds(), 1)
-
-        vmin = min(vals)
-        vmax = max(vals)
-        if vmin == vmax:
-            vmax = vmin + 1
-
-        inner_w = self.rect.w - 2 * self.padding
-        inner_h = self.rect.h - 2 * self.padding
-
-        points: list[tuple[int, int]] = []
-        for t, v in pts:
-            x_frac = (t - t0).total_seconds() / total
-            x = int(self.padding + x_frac * inner_w)
-
-            y_frac = (v - vmin) / (vmax - vmin)
-            y = int(self.padding + (inner_h - (y_frac * inner_h)))
-
-            points.append((x, y))
-
-        return points
-    
-    def _draw_axes(self) -> None:
-        """Draw x/y axes with a few notch ticks."""
-        w, h = self.rect.size
-        p = self.padding
-
-        # axes lines
-        pygame.draw.line(self._surface, self.tick_color, (p, h - p), (w - p, h - p), 1)
-        pygame.draw.line(self._surface, self.tick_color, (p, p), (p, h - p), 1)
-
-        # simple ticks: five evenly spaced
-        num_ticks = 5
-        for i in range(num_ticks + 1):
-            # x-axis ticks
-            tx = p + i * ((w - 2 * p) / num_ticks)
-            pygame.draw.line(self._surface, self.tick_color, (tx, h - p - 3), (tx, h - p + 3), 1)
-            # y-axis ticks
-            ty = p + i * ((h - 2 * p) / num_ticks)
-            pygame.draw.line(self._surface, self.tick_color, (p - 3, ty), (p + 3, ty), 1)
-
-    def rerender(self) -> None:
-        self._surface.fill(self.bg_color)
-        self._draw_axes()
-        pts = self._compute_points()
-
-        if len(pts) >= 2:
-            pygame.draw.aalines(self._surface, self.line_color, False, pts)
-
-        for p in pts:
-            pygame.draw.circle(self._surface, self.point_color, p, 4)
-
-    def draw(self, surface: pygame.Surface) -> None:
-        if self._render:
-            self._render = False
-            self.rerender()
-
-        surface.blit(self._surface, self.rect.topleft)
-
-    def handle_event(self, event: pygame.event.Event) -> None:
-        # this proof‑of‑concept chart does not react to events yet
-        self._render = True
 
 
 
@@ -661,20 +557,6 @@ if __name__ == "__main__":
 
     page: Page = TestPage("Test Page", (SCREEN_WIDTH, SCREEN_HEIGHT))
 
-    # simple chart proof-of-concept, generate some fake timestamped data
-    from datetime import timedelta
-    now = datetime.now()
-    sample = [(now + timedelta(seconds=i * 5), i * 3.0 + (i % 2) * 2) for i in range(25)]
-    chart = Chart(pygame.Rect(50, 150, 800, 400), data=sample)
-    page._add_elem(chart)
-
-    # pane = pygame.Surface((400,300))
-    # pane.fill((200,200,200))
-
-    # other = pygame.Surface((100,100))
-    # other.fill((100,100,100))
-
-    # other.blit(pane, (50,50))
 
     while True:
         for event in pygame.event.get():

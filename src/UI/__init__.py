@@ -1,6 +1,8 @@
 from . import exampleApp
-from . import worker
 
-from .graphics import *
+from .core import worker
+from .core.UIElements import *
+
+from .charting.charts import *
 
 __all__ = ["exampleApp", "worker"]
