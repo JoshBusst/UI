@@ -5,7 +5,7 @@ from queue import Queue, Empty as EmptyException, Full as FullException
 
 
 
-MAX_EVENT_SIZE: int = 20
+_MAX_EVENT_SIZE: int = 20
 
 
 
@@ -46,9 +46,9 @@ class ContentPlugin:
     def __init__(self, channel: str):
         self.channel = channel
         self._mailbox = Mailbox()
-        self._events_queue = Queue(MAX_EVENT_SIZE)
+        self._events_queue = Queue(_MAX_EVENT_SIZE)
 
-        _content_interface.register(self)
+        content_interface.register(self)
 
 
     # Consumer API
@@ -184,4 +184,4 @@ class Application(ABC):
 
 
 
-_content_interface = ContentInterface()
+content_interface = ContentInterface()

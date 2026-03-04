@@ -1,14 +1,12 @@
 import pygame
 from datetime import datetime
 from abc import ABC, abstractmethod
-from UI.core.worker import log, Mailbox, _content_interface
-
+from .worker import log, Mailbox
+from .worker import content_interface as _content_interface
 
 
 pygame.init()
 
-SCREEN_SIZE: tuple[int] = (900,900)
-SCREEN_WIDTH, SCREEN_HEIGHT = SCREEN_SIZE
 
 
 # ==================== DEFAULT_THEME ====================
@@ -27,21 +25,15 @@ DEFAULT_THEME = {
 }
 
 
-# ==================== FONTS ====================
+# ---------- Default Fonts ----------
 FONT_SMALL = pygame.font.SysFont("segoeui", 12)
 FONT_MED = pygame.font.SysFont("segoeui", 24)
-FONT_LARGE = pygame.font.SysFont("segoeui", 36, bold=True)
+FONT_LARGE = pygame.font.SysFont("segoeui", 36)
 
 HEADER_HEIGHT: int = 120
 FOOTER_HEIGHT: int = 90
 
-CONTENT_RECT = pygame.Rect(
-    0,
-    HEADER_HEIGHT,
-    SCREEN_WIDTH,
-    SCREEN_HEIGHT - HEADER_HEIGHT - FOOTER_HEIGHT
-)
-
+# ---------- Mouse Button ----------
 MOUSE_BUTTON_LEFT: int = 1
 MOUSE_BUTTON_MID: int = 2
 MOUSE_BUTTON_RIGHT: int = 3
@@ -65,7 +57,7 @@ def localEvent(event: pygame.event.Event, rect: pygame.Rect) -> pygame.event.Eve
 
 
 
-# the base UIElement class
+# ---------- UI Element Primitive ----------
 class UIElement(ABC):
     def __init__(self, rect: pygame.Rect):
         self._render: bool = True
@@ -85,6 +77,7 @@ class UIElement(ABC):
 
 
 
+# ---------- Button Primitives ----------
 class Button(UIElement):
     """A toggle button. State is toggled on each click, and button is visually depressed while active."""
 
@@ -338,10 +331,9 @@ class Label(UIElement):
 class ContentPane(UIElement):
     def __init__(self, rect: pygame.Rect, channel: str):
         super().__init__(rect)
-
         self._channel: str = channel
         self._surface: pygame.Surface = pygame.Surface(self.rect.size)
-        self._get_content: callable = lambda:  _content_interface.subscribe(self._channel, self.rect)
+        self._get_content: callable = lambda: _content_interface.subscribe(self._channel, self.rect)
 
     def draw(self, surface: pygame.Surface) -> None:
         content: pygame.Surface
@@ -485,13 +477,13 @@ class Header(Canvas):
 
         # add the page title
         title: pygame.Surface = FONT_LARGE.render(self.title, True, self.theme["text"])
-        surface.blit(title, title.get_rect(center=(SCREEN_WIDTH // 2, HEADER_HEIGHT // 2)))
+        surface.blit(title, title.get_rect(center=(self.rect.w // 2, self.rect.h // 2)))
 
         # add the datetime widget
         time_surface: pygame.Surface = get_time_surface()
         surface.blit(
             time_surface,
-            time_surface.get_rect(midright=(SCREEN_WIDTH - 30, HEADER_HEIGHT // 2))
+            time_surface.get_rect(midright=(self.rect.w - 30, self.rect.h // 2))
         )
 
 # the default footer
@@ -514,11 +506,11 @@ class Footer(Canvas):
 
 # the default page
 class Page(Canvas):
-    def __init__(self, title: str, dims: tuple=(SCREEN_WIDTH, SCREEN_HEIGHT)):
+    def __init__(self, title: str, dims: tuple):
         self.rect = pygame.Rect(0, 0, *dims)
         super().__init__(self.rect)
-        self.title: str = title
 
+        self.title: str = title
         self._add_elem(
             Header(self.title, pygame.Rect(0, 0, self.rect.width, HEADER_HEIGHT)),
             Footer(pygame.Rect(0, self.rect.height - FOOTER_HEIGHT, self.rect.width, FOOTER_HEIGHT)),
@@ -530,32 +522,94 @@ class Page(Canvas):
 
 
 
+# ==================== PAGE MANAGER ====================
+class PageManager:
+    def __init__(self, pages: dict[str, Canvas]=None, default_page: str=None):
+        self.pages: dict[str, Canvas] = pages or {}
+        self.current: str = default_page if default_page in self.pages else None
+
+        self.back_stack: list[str] = []
+        self.forward_stack: list[str] = []
+        self.forward_down: bool = True
+
+        if self.current is None and self.pages:
+            self.current = next(iter(self.pages))
+
+    def add_page(self, key: str, page: Canvas) -> None:
+        self.pages[key] = page
+
+        if self.current is None:
+            self.set_page(key)
+
+    def set_page(self, key: str) -> None:
+        if key == self.current or key == None:
+            return  # don't pollute history
+
+        self.back_stack.append(self.current)
+        self.forward_stack.clear()
+        print(f"Page changed: {self.current} -> {key}")
+        self.current = key
+
+    def go_back(self) -> None:
+        if not self.back_stack:
+            return
+
+        self.forward_stack.append(self.current)
+        self.current = self.back_stack.pop()
+
+    def go_forward(self) -> None:
+        if not self.forward_stack:
+            return
+
+        self.back_stack.append(self.current)
+        self.current = self.forward_stack.pop()
+
+    def current_page(self) -> Canvas:
+        return self.pages.get(self.current, None)
+
+    def handle_event(self, event: pygame.event) -> None:
+        # Keyboard navigation
+        if event.type == pygame.KEYDOWN:
+            mods = pygame.key.get_mods()
+
+            if mods & pygame.KMOD_ALT:
+                if event.key == pygame.K_LEFT:
+                    self.go_back()
+                elif event.key == pygame.K_RIGHT:
+                    self.go_forward()
+
+        if self.forward_down and self.current_page():
+            self.current_page().handle_event(event)
+
+    def draw(self, surface: pygame.Surface) -> None:
+        if self.current_page():
+            self.current_page().draw(surface)
+
+
+
 outbox: Mailbox = Mailbox()
 
 def goto(page: str) -> None:
     outbox.put(page)
     
-def getPage(key: str) -> Page:
-    return pages.get(key, HomePage())
-
 def get_time_surface() -> pygame.Surface:
     now = datetime.now().strftime("%A %d %b · %I:%M:%S %p")
     return FONT_SMALL.render(now, True, DEFAULT_THEME["muted"])
 
 
 
-goto("home")
-
 
 
 if __name__ == "__main__":
+    SCREEN_WIDTH, SCREEN_HEIGHT = (900,900)
+
     pygame.init()
 
     SCREEN = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption("Graphics Test")
     CLOCK = pygame.time.Clock()
 
-    page: Page = TestPage("Test Page", (SCREEN_WIDTH, SCREEN_HEIGHT))
+    page: Page = Page("Test Page", (SCREEN_WIDTH, SCREEN_HEIGHT))
 
 
     while True:

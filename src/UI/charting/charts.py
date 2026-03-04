@@ -5,6 +5,81 @@ from typing import List, Tuple, Optional
 from UI.core.UIElements import UIElement, DEFAULT_THEME
 
 
+
+class DataSeries:
+    def __init__(self):
+        self.data: List[Tuple[datetime, float]] = []
+        self.auto_sort: bool = True
+
+    def add_point(self, timestamp: datetime, value: float) -> None:
+        self.data.append((timestamp, value))
+        
+        if self.auto_sort:
+            self.data.sort(key=lambda d: d[0])
+
+    def compute_extrema(self) -> tuple:
+        if len(self.data) < 2:
+            return None
+
+        values: list[float] = [v for _, v in self.data]
+        times: list[datetime] = [t for t, _ in self.data]
+
+        tstart, tend = times[0], times[1]
+        trng: float = max((tend - tstart).total_seconds(), 1)
+
+        vmax, vmin = max(values), min(values)
+        vrng: float = vmax - vmin
+
+        return vmin, vmax, vrng, tstart, tend, trng
+    
+class Graph(UIElement):
+    def __init__(self, rect: pygame.Rect):
+        super().__init__(rect)
+
+        self.dataset: DataSeries = DataSeries()
+
+    def graph_point(self, point: tuple) -> tuple:
+        graph_rect = self._graph_rect()
+        x, y = point
+        return (x - graph_rect.x, y - graph_rect.y)
+    
+    def _draw_axes(self, vmin: float, vmax: float, tstart: datetime, tend: datetime) -> None:
+        pygame.draw.line(self._surface, self.tick_color, self.rect.bottomleft, self.rect.bottomright, 1)
+        pygame.draw.line(self._surface, self.tick_color, self.rect.topleft, self.rect.bottomleft, 1)
+
+        if not self.data:
+            return
+
+        total_time = max((tend - tstart).total_seconds(), 1)
+        vmin, vmax, vrng, tstart, tend, trng = self.dataset.compute_extrema()
+
+        for i in range(self.tick_count + 1):
+            # X grid
+            x = self.rect.left + i * (self.rect.width / self.tick_count)
+            self._draw_dashed_line((x, self.rect.top), (x, self.rect.bottom))
+
+            t_val = tstart + timedelta(seconds=total_time * (i / self.tick_count))
+            label = t_val.strftime("%H:%M:%S")
+            text = self.tick_font.render(label, True, self.tick_color)
+            self._surface.blit(text, (x - text.get_width() // 2, self.rect.bottom + 8))
+
+            # Y grid
+            y = self.rect.top + i * (self.rect.height / self.tick_count)
+            self._draw_dashed_line((self.rect.left, y), (self.rect.right, y))
+
+            value = vmax - (i / self.tick_count) * (vmax - vmin)
+            label = f"{value:.2f}"
+            text = self.tick_font.render(label, True, self.tick_color)
+            self._surface.blit(text, (self.rect.left - text.get_width() - 8, y - text.get_height() // 2))
+
+    def handle_event(self, event: pygame.event.Event) -> None:
+        super().handle_event(event)
+    
+    def draw(self, surface: pygame.Surface) -> None:
+        super().draw(surface)
+
+
+
 class Chart(UIElement):
     def __init__(
         self,
