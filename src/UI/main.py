@@ -30,6 +30,21 @@ class ChartNew(Chart):
                     self.add_point(*data_point)
 
 
+class Chartnewer(Canvas):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        graph: Graph = Graph(pygame.Rect(50, 50, 800, 400))
+        graph.dataset.data = sample
+    
+    def draw(self, surface: pygame.Surface) -> None:
+        surface.fill((100,100,100))
+        super().draw(surface)
+    
+    def handle_event(self, event: pygame.event.Event) -> None:
+        super().handle_event(event)
+
+
 
 class DefaultPage(Canvas):
     def __init__(self, title: str, dims: tuple=(SCREEN_WIDTH, SCREEN_HEIGHT)):
@@ -67,7 +82,7 @@ if __name__ == "__main__":
     # simple chart proof-of-concept, generate some fake timestamped data
     from datetime import timedelta
     now = datetime.now()
-    sample = [(now + timedelta(seconds=i * 5), i * 3.0 + (i % 2) * 2) for i in range(25)]
+    sample = [(now + timedelta(seconds=i * 5), (i **2 )) for i in range(25)]
     chart = ChartNew(
         pygame.Rect(50, 150, 800, 400),
         data=sample,
@@ -77,6 +92,9 @@ if __name__ == "__main__":
         legend=["Sample Data"],
     )
     page1._add_elem(chart)
+    graph: Graph = Graph(pygame.Rect(50, 150, 400,400))
+    graph.data.data = sample
+    page2._add_elem(graph)
 
     manager: PageManager = PageManager({
         "page1": page1,
