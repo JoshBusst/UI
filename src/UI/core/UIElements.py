@@ -13,6 +13,7 @@ pygame.init()
 DEFAULT_THEME = {
     "bg": (33, 24, 18),
     "panel": (64, 44, 28),
+    "transparent": (0,0,0,0),
 
     "elem": (198, 170, 128),
     "elem_hover": (210, 182, 140),
@@ -313,16 +314,28 @@ class Checkbox(Button):
 
 # a simple text label
 class Label(UIElement):
-    def __init__(self, rect: pygame.Rect, text: str="", font: pygame.font.Font=FONT_MED, color: tuple=(255,255,255)):
+    def __init__(self, rect: pygame.Rect, text: str=""):
         super().__init__(rect)
 
+        self._surface: pygame.Surface = pygame.Surface(self.rect.size, pygame.SRCALPHA)
+        self._render: bool = True
+
         self.text: str = text
-        self.font: pygame.font.Font = font
-        self.color: tuple = color
+        self.font: pygame.font.Font = FONT_MED
+        self.text_colour: tuple = DEFAULT_THEME["text"]
+        self.bg: tuple = pygame.color.Color(DEFAULT_THEME["transparent"])
+
+    def rerender(self) -> None:
+        self._surface.fill(self.bg)
+        label: pygame.Surface = self.font.render(self.text, True, self.text_colour)
+        self._surface.blit(label, label.get_rect(center=(self.rect.w // 2, self.rect.h // 2)))
 
     def draw(self, surface: pygame.Surface) -> None:
-        label = self.font.render(self.text, True, self.color)
-        surface.blit(label, label.get_rect(topleft=(self.rect.x, self.rect.y)))
+        if self._render:
+            self._render = False
+            self.rerender()
+
+        surface.blit(self._surface, self.rect.topleft)
 
     def handle_event(self, event: pygame.event.Event) -> None:
         pass

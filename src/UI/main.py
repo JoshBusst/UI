@@ -2,6 +2,7 @@ from UI.core.UIElements import *
 from UI.core.worker import *
 from UI.charting.charts import *
 from UI.exampleApp import BasicApp
+from UI.core.graphics import *
 
 
 
@@ -83,8 +84,8 @@ if __name__ == "__main__":
     from datetime import timedelta
     now = datetime.now()
     sample = [(now + timedelta(seconds=i * 5), (i **2 )) for i in range(25)]
-    chart = ChartNew(
-        pygame.Rect(50, 150, 800, 400),
+    chart = Chart(
+        pygame.Rect(100,100,400,400),
         data=sample,
         title="Shit",
         x_label="Time",
@@ -92,9 +93,7 @@ if __name__ == "__main__":
         legend=["Sample Data"],
     )
     page1._add_elem(chart)
-    graph: Graph = Graph(pygame.Rect(50, 150, 400,400))
-    graph.data.data = sample
-    page2._add_elem(graph)
+    
 
     manager: PageManager = PageManager({
         "page1": page1,
