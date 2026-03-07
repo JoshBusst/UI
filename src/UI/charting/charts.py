@@ -5,7 +5,8 @@ from typing import List, Tuple, Optional
 
 from pygame import surface
 from UI.core.UIElements import *
-from UI.core.graphics import draw_dashed_line
+from UI.core.graphics import *
+
 
 
 GRAPH_DEFAULT_THEME = {
@@ -14,6 +15,7 @@ GRAPH_DEFAULT_THEME = {
     "tick": (150, 150, 170),
     "grid": (150, 150, 170, 70),
 }
+
 
 
 class DataSeries:
@@ -45,97 +47,6 @@ class DataSeries:
 
         return vmin, vmax, vrng, tstart, tend, trng
     
-class Graph2(UIElement):
-    def __init__(self, rect: pygame.Rect):
-        super().__init__(rect)
-        self._surface = pygame.Surface(self.rect.size, pygame.SRCALPHA)
-
-        self.dataset: DataSeries = DataSeries()
-        self.padding: int = 40
-
-        # padding keeps space left and lower for labels and ticks
-        self._graph_rect = pygame.Rect(
-            self.padding,
-            0,
-            self.rect.width - self.padding,
-            self.rect.height - self.padding,
-        )
-
-    def graph_point(self, point: tuple) -> tuple:
-        x, y = point
-        return (x - self.rect.x, y - self.rect.y)
-    
-    def _draw_axes(self, vmin: float, vmax: float, vrng: float, tstart: datetime, tend: datetime, trng: float) -> None:
-        topleft: tuple = (self._graph_rect.x, self._graph_rect.y)
-        bottomleft: tuple = (self._graph_rect.x, self._graph_rect.y + self._graph_rect.h - 1)
-        bottomright: tuple = (self._graph_rect.x + self._graph_rect.w - 1, self._graph_rect.y + self._graph_rect.h - 1)
-
-        pygame.draw.line(self._surface, GRAPH_DEFAULT_THEME["tick"], topleft, bottomleft, 1)
-        pygame.draw.line(self._surface, GRAPH_DEFAULT_THEME["tick"], bottomleft, bottomright, 1)
-
-        if self.dataset.size() < 2:
-            return
-
-        # vmin, vmax, vrng, tstart, tend, trng = self.dataset.compute_extrema()
-        tick_count: int = 5
-
-        # for i in range(tick_count):
-        #     # X grid
-        #     x: float = self.rect.left + i * (self.rect.width / tick_count)
-        #     self._draw_dashed_line((x, self.rect.top), (x, self.rect.bottom))
-
-        #     t_val: datetime = tstart + timedelta(seconds=trng * (i / tick_count))
-        #     label: str = t_val.strftime("%H:%M:%S")
-        #     text: pygame.Surface = FONT_SMALL.render(label, True, GRAPH_DEFAULT_THEME["tick"])
-        #     self._surface.blit(text, (x - text.get_width() // 2, self.rect.bottom + 8))
-
-        #     # Y grid
-        #     y: float = self.rect.top + i * (self.rect.height / tick_count)
-        #     self._draw_dashed_line((self.rect.left, y), (self.rect.right, y))
-
-        #     value: float = vmax - (i / tick_count) * (vmax - vmin)
-        #     label: str = f"{value:.2f}"
-        #     text: pygame.Surface = FONT_SMALL.render(label, True, GRAPH_DEFAULT_THEME["tick"])
-        #     self._surface.blit(text, (self.rect.left - text.get_width() - 8, y - text.get_height() // 2))
-
-    def _draw_dashed_line(self, start: tuple, end: tuple, dash=6):
-        x1, y1 = start
-        x2, y2 = end
-
-        dx = x2 - x1
-        dy = y2 - y1
-        length = max(abs(dx), abs(dy))
-        if length == 0:
-            return
-
-        for i in range(0, length, dash * 2):
-            f1 = i / length
-            f2 = min((i + dash) / length, 1)
-            sx = x1 + dx * f1
-            sy = y1 + dy * f1
-            ex = x1 + dx * f2
-            ey = y1 + dy * f2
-            pygame.draw.line(self._surface, GRAPH_DEFAULT_THEME["grid"], (sx, sy), (ex, ey), 1)
-
-    def handle_event(self, event: pygame.event.Event) -> None:
-        print(event.pos)
-    
-    def draw(self, surface: pygame.Surface) -> None:
-        self._surface.fill(GRAPH_DEFAULT_THEME["bg"])
-
-        # if len(self.dataset.data) >= 2:
-        #     points = self._compute_points(self.dataset.data)
-        #     pygame.draw.aalines(self._surface, self.line_color, False, points)
-
-        #     for pt in points:
-        #         pygame.draw.circle(self._surface, self.point_color, pt, self.point_radius)
-
-        extrema: tuple = self.dataset.compute_extrema()
-        if extrema:
-                self._draw_axes(*extrema)
-
-        surface.blit(self._surface, self.rect.topleft)
-
 class Graph(UIElement):
     def __init__(self, rect: pygame.Rect, data: Optional[DataSeries] = None):
         super().__init__(rect)
@@ -333,17 +244,6 @@ class Graph(UIElement):
         for pt in points:
             pygame.draw.circle(self._surface, self.point_color, pt, self.point_radius)
 
-    # ------------------------------------------------------------
-    # Required Interface
-    # ------------------------------------------------------------
-
-    def draw(self, surface: pygame.Surface) -> None:
-        if self._rerender:
-            self._rerender = False
-            self.render()
-            
-        surface.blit(self._surface, self.rect.topleft)
-
     def handle_event(self, event: pygame.event.Event) -> None:
         pass
 
@@ -381,7 +281,7 @@ class Chart(Canvas):
         )
 
         # Style
-        self.bg_color = (20,10,10)
+        self.bg: tuple = (20,10,10)
         self.line_color = DEFAULT_THEME["elem"]
         self.point_color = DEFAULT_THEME["elem_hover"]
         self.tick_color = DEFAULT_THEME["muted"]
@@ -409,11 +309,6 @@ class Chart(Canvas):
     def set_data(self, data: List[Tuple[datetime, float]]) -> None:
         self.data = sorted(data, key=lambda d: d[0])
         self._rerender = True
-
-    def draw(self, surface: pygame.Surface) -> None:
-        self._surface.fill(self.bg_color)
-        surface.blit(self._surface, self.rect.topleft)
-        super().draw(surface)
 
     def handle_event(self, event: pygame.event.Event) -> None:
         pass
