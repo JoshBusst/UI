@@ -36,7 +36,7 @@ class Theme:
 class CheckboxTheme(Theme):
     border: tuple = (0,0,0)
 
-class ChartTheme:
+class ChartTheme(Theme):
     bg: tuple = (25, 25, 28)
     elem: tuple = (200, 200, 220)
     tick: tuple = (150, 150, 170)
@@ -47,10 +47,19 @@ class ChartTheme:
     label_font: pygame.font.Font = pygame.font.SysFont("consolas", 14)
     tick_font: pygame.font.Font = pygame.font.SysFont("consolas", 12)
 
+class ButtonTheme(Theme):
+    text: tuple = (10,10,10)
+
+class LabelTheme(Theme):
+    bg: tuple = (0,0,0,0)
+    font: tuple = pygame.font.SysFont("segoeui", 32, bold=True)
+
 
 DEFAULT_THEME: Theme = Theme()
 DEFAULT_CHART_THEME: Theme = ChartTheme()
 DEFAULT_CHECKBOX_THEME: Theme = CheckboxTheme()
+BUTTON_DEFAULT_THEME: Theme = ButtonTheme()
+DEFAULT_LABEL_THEME: Theme = LabelTheme()
 
 HEADER_HEIGHT: int = 120
 FOOTER_HEIGHT: int = 90

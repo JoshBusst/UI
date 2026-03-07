@@ -249,12 +249,13 @@ class Chart(Canvas):
         self.title: Label = Label((0, 0, self.rect.width, 30), title)
         self.x_label: Label = Label((0, 0, self.rect.width, 20), x_label)
         self.y_label: Label = Label((0, 0, self.rect.width, 20), y_label)
-        self.legend: Legend = Legend((0,0,100,100), [""])
+        self.legend: Legend = Legend((0,0,100,100), legend)
 
         self._add_elem(
             self.title,
             self.x_label,
-            self.y_label
+            self.y_label,
+            # self.legend,
         )
 
         self.padding = 60

@@ -1,6 +1,7 @@
 import pygame
 from datetime import datetime
 from abc import ABC, abstractmethod
+from copy import copy
 
 from .worker import log, Mailbox
 from .worker import content_interface as _content_interface
@@ -26,7 +27,7 @@ class UIElement(ABC):
     def __init__(self, rect: tuple):
         self.rect: pygame.Rect = pygame.Rect(*rect)
         self._surface: pygame.Surface = pygame.Surface(self.rect.size, pygame.SRCALPHA)
-        self.theme: Theme = DEFAULT_THEME
+        self.theme: Theme = copy(DEFAULT_THEME)
 
         self.rerender: bool = True
         self.interactable: bool = True
@@ -47,9 +48,10 @@ class UIElement(ABC):
             })
 
     def draw(self, surface: pygame.Surface) -> None:
-        if self.rerender:
-            self.rerender = False
-            self.render()
+        # if self.rerender:
+        #     self.rerender = False
+        #     self.render()
+        self.render()
         
         if self.visible:
             surface.blit(self._surface, self.rect.topleft)
@@ -71,6 +73,7 @@ class Button(UIElement):
     def __init__(self, rect: tuple, text: str="", callback: callable=None):
         super().__init__(rect)
 
+        self.theme: Theme = copy(BUTTON_DEFAULT_THEME)
         self._anim_rect: pygame.Rect = self.rect.copy() # used for animation
         self._callback: callable = callback
         self._pressed: bool = False
@@ -95,10 +98,18 @@ class Button(UIElement):
             colour = self.theme.elem
 
         # render button background and label text
-        pygame.draw.rect(self._surface, colour, pygame.Rect(0,0,*self._anim_rect.size), border_radius=14)
-        textSurface: pygame.surface = self.theme.font.render(self.text, True, self.theme.elem_text)
+        pygame.draw.rect(self._surface, colour, pygame.Rect(0,0, *self._anim_rect.size), border_radius=14)
+        textSurface: pygame.Surface = self.theme.font.render(self.text, True, self.theme.text)
 
         self._surface.blit(textSurface, textSurface.get_rect(center=self._surface.get_rect().center))
+
+    def draw(self, surface: pygame.Surface) -> None:
+        # if self.rerender:
+        #     self.rerender = False
+        self.render()
+        
+        if self.visible:
+            surface.blit(self._surface, self._anim_rect.topleft)
 
     def handle_event(self, event: pygame.event.Event) -> bool:
         if event.type not in [pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION] or not self.interactable:
@@ -295,6 +306,7 @@ class Label(UIElement):
     def __init__(self, rect: tuple, text: str=""):
         super().__init__(rect)
 
+        self.theme: Theme = copy(DEFAULT_LABEL_THEME)
         self.text: str = text
 
     def render(self) -> None:
@@ -310,10 +322,11 @@ class Label_anim(Label):
         super().__init__(rect, get_text())
 
         self.get_text: callable = get_text
+        self.theme.font = pygame.font.SysFont("segoeui", 16)
 
     def render(self) -> None:
         self.text = self.get_text()
-        self.render()
+        super().render()
 
 # a dynamic content pane. Points to a mailbox for content collection
 class ContentPane(UIElement):
@@ -443,16 +456,16 @@ class Header(Canvas):
         self.theme.bg = self.theme.panel
         self._add_elem(
             Button_Tap(
-                rect=pygame.Rect(30, 35, 120, 50),
+                rect=(30, 35, 120, 50),
                 text="Home",
                 callback=lambda: goto("home"),
             ),
             Label_anim(
-                pygame.Rect(self.rect.width - 230, 35, 200, 50),
-                get_time=lambda: datetime.now().strftime("%A %d %b · %I:%M:%S %p"),
+                (self.rect.width - 240, 20, 220, 80),
+                get_text=lambda: datetime.now().strftime("%A %d %b · %I:%M:%S %p"),
             ),
             Label(
-                pygame.Rect(0, 0, self.rect.width, self.rect.height),
+                (0, 0, self.rect.width, self.rect.height),
                 title,
             )
         )
@@ -475,14 +488,13 @@ class Footer(Canvas):
 # the default page
 class Page(Canvas):
     def __init__(self, title: str, dims: tuple):
-        self.rect = pygame.Rect(0, 0, *dims)
-        super().__init__(self.rect)
+        super().__init__((0,0,*dims))
 
-        self.theme.bg = self.theme.panel
+        self.theme.bg = DEFAULT_THEME.bg
         self.title: str = title
         self._add_elem(
-            Header(self.title, pygame.Rect(0, 0, self.rect.width, HEADER_HEIGHT)),
-            Footer(pygame.Rect(0, self.rect.height - FOOTER_HEIGHT, self.rect.width, FOOTER_HEIGHT)),
+            Header(self.title, (0, 0, self.rect.width, HEADER_HEIGHT)),
+            Footer((0, self.rect.height - FOOTER_HEIGHT, self.rect.width, FOOTER_HEIGHT)),
         )
 
 
