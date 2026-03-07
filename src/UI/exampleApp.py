@@ -3,7 +3,7 @@ from datetime import datetime
 import pygame
 import sys
 
-from UI.core.UIElements import FONT_SMALL
+from UI.core.graphics import DEFAULT_THEME
 from UI.core.worker import Application
 
 
@@ -40,12 +40,12 @@ def draw(screen: pygame.Surface) -> None:
     screen.fill((100,100,100))
 
     # add the page title
-    title: pygame.Surface = FONT_SMALL.render("An Application!", True, (248, 246, 240))
+    title: pygame.Surface = DEFAULT_THEME.font().render("An Application!", True, (248, 246, 240))
     screen.blit(title, title.get_rect(topleft=(20, 40)))
 
     # add the datetime widget
     now = datetime.now().strftime("%A %d %b · %I:%M:%S %p")
-    time_surf: pygame.Surface = FONT_SMALL.render(now, True, (248, 246, 240))
+    time_surf: pygame.Surface = DEFAULT_THEME.font().render(now, True, (248, 246, 240))
     screen.blit(
         time_surf,
         time_surf.get_rect(midright=(APP_SCREEN_WIDTH - 30, 80))

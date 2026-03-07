@@ -9,13 +9,6 @@ from UI.core.graphics import *
 
 
 
-GRAPH_DEFAULT_THEME = {
-    "bg": (25, 25, 28),
-    "elem": (200, 200, 220),
-    "tick": (150, 150, 170),
-    "grid": (150, 150, 170, 70),
-}
-
 
 
 class DataSeries:
@@ -48,7 +41,7 @@ class DataSeries:
         return vmin, vmax, vrng, tstart, tend, trng
     
 class Graph(UIElement):
-    def __init__(self, rect: pygame.Rect, data: Optional[DataSeries] = None):
+    def __init__(self, rect: tuple, data: Optional[DataSeries] = None):
         super().__init__(rect)
 
         self._surface = pygame.Surface(self.rect.size, pygame.SRCALPHA)
@@ -57,26 +50,9 @@ class Graph(UIElement):
         # DataSeries backing store; create a fresh one if caller didn't supply
         self.data: DataSeries = data if data is not None else DataSeries()
 
-        # Style
-        self.bg_color = (25, 25, 28)
-        self.line_color = DEFAULT_THEME["elem"]
-        self.point_color = DEFAULT_THEME["elem_hover"]
-        self.tick_color = DEFAULT_THEME["muted"]
-        self.grid_color = (*DEFAULT_THEME["muted"], 70)
-        self.legend_bg = (35, 35, 40)
-
         self.padding = 60
         self.point_radius = 4
         self.tick_count = 5
-
-        # Fonts
-        self.title_font = pygame.font.SysFont("consolas", 18, bold=True)
-        self.label_font = pygame.font.SysFont("consolas", 14)
-        self.tick_font = pygame.font.SysFont("consolas", 12)
-
-    # ------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------
 
     def add_point(self, timestamp: datetime, value: float) -> None:
         """Append a new sample via DataSeries and flag redraw."""
@@ -198,9 +174,9 @@ class Graph(UIElement):
             ey = y1 + dy * f2
             pygame.draw.line(self._surface, self.grid_color, (sx, sy), (ex, ey), 1)
 
-    def _draw_axes(self, graph_rect, vmin, vmax, t0, t1):
-        pygame.draw.line(self._surface, self.tick_color, graph_rect.bottomleft, graph_rect.bottomright, 1)
-        pygame.draw.line(self._surface, self.tick_color, graph_rect.topleft, graph_rect.bottomleft, 1)
+    def _draw_axes(self, graph_rect: pygame.Rect, vmin: float, vmax: float, t0: float, t1: float):
+        pygame.draw.line(self._surface, self.theme.border, graph_rect.bottomleft, graph_rect.bottomright, 1)
+        pygame.draw.line(self._surface, self.theme.border, graph_rect.topleft, graph_rect.bottomleft, 1)
 
         if not self.data:
             return
@@ -214,7 +190,7 @@ class Graph(UIElement):
 
             t_val = t0 + timedelta(seconds=total_time * (i / self.tick_count))
             label = t_val.strftime("%H:%M:%S")
-            text = self.tick_font.render(label, True, self.tick_color)
+            text = self.tick_font.render(label, True, self.theme.border)
             self._surface.blit(text, (x - text.get_width() // 2, graph_rect.bottom + 8))
 
             # Y grid
@@ -223,7 +199,7 @@ class Graph(UIElement):
 
             value = vmax - (i / self.tick_count) * (vmax - vmin)
             label = f"{value:.2f}"
-            text = self.tick_font.render(label, True, self.tick_color)
+            text = self.tick_font.render(label, True, self.theme.border)
             self._surface.blit(text, (graph_rect.left - text.get_width() - 8, y - text.get_height() // 2))
 
     # ------------------------------------------------------------
@@ -248,7 +224,7 @@ class Graph(UIElement):
         pass
 
 class Legend(Canvas):
-    def __init__(self, rect: pygame.Rect, entries: List[str]):
+    def __init__(self, rect: tuple, entries: List[str]):
         super().__init__(rect)
         self.entries = entries
 
@@ -256,23 +232,24 @@ class Legend(Canvas):
 class Chart(Canvas):
     def __init__(
         self,
-        rect: pygame.Rect,
+        rect: tuple,
         data: DataSeries,
         title: str = "",
         x_label: str = "",
         y_label: str = "",
-        legend: Optional[List[str]] = None,
+        legend: List[str] = None,
     ):
         super().__init__(rect)
 
         self._surface = pygame.Surface(self.rect.size, pygame.SRCALPHA)
         self._rerender = True
+        self.theme: Theme = DEFAULT_CHART_THEME
 
         # Labels
-        self.title: Label = Label(pygame.Rect(0, 0, self.rect.width, 30), title)
-        self.x_label: Label = Label(pygame.Rect(0, 0, self.rect.width, 20), x_label)
-        self.y_label: Label = Label(pygame.Rect(0, 0, self.rect.width, 20), y_label)
-        self.legend: Legend = None
+        self.title: Label = Label((0, 0, self.rect.width, 30), title)
+        self.x_label: Label = Label((0, 0, self.rect.width, 20), x_label)
+        self.y_label: Label = Label((0, 0, self.rect.width, 20), y_label)
+        self.legend: Legend = Legend((0,0,100,100), [""])
 
         self._add_elem(
             self.title,
@@ -280,26 +257,9 @@ class Chart(Canvas):
             self.y_label
         )
 
-        # Style
-        self.bg: tuple = (20,10,10)
-        self.line_color = DEFAULT_THEME["elem"]
-        self.point_color = DEFAULT_THEME["elem_hover"]
-        self.tick_color = DEFAULT_THEME["muted"]
-        self.grid_color = (*DEFAULT_THEME["muted"], 70)
-        self.legend_bg = (35, 35, 40)
-
         self.padding = 60
         self.point_radius = 4
         self.tick_count = 5
-
-        # Fonts
-        self.title_font = pygame.font.SysFont("consolas", 18, bold=True)
-        self.label_font = pygame.font.SysFont("consolas", 14)
-        self.tick_font = pygame.font.SysFont("consolas", 12)
-
-    # ------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------
 
     def add_point(self, timestamp: datetime, value: float) -> None:
         self.data.append((timestamp, value))
