@@ -46,7 +46,7 @@ if __name__ == "__main__":
     now = datetime.now()
     sample = [(now + timedelta(seconds=i * 5), (i **2 )) for i in range(25)]
     chart = Chart(
-        pygame.Rect(100,100,400,400),
+        (100,200,700,500),
         data=sample,
         title="Shit",
         x_label="Time",
@@ -54,6 +54,8 @@ if __name__ == "__main__":
         legend=["Sample Data"],
     )
     # page1._add_elem(chart)
+    graph = Graph((100,200,700,500),sample)
+    page1._add_elem(chart)
     
 
     manager: PageManager = PageManager({

@@ -36,7 +36,7 @@ class Theme:
 class CheckboxTheme(Theme):
     border: tuple = (0,0,0)
 
-class ChartTheme(Theme):
+class GraphTheme(Theme):
     bg: tuple = (25, 25, 28)
     elem: tuple = (200, 200, 220)
     tick: tuple = (150, 150, 170)
@@ -56,7 +56,7 @@ class LabelTheme(Theme):
 
 
 DEFAULT_THEME: Theme = Theme()
-DEFAULT_CHART_THEME: Theme = ChartTheme()
+DEFAULT_GRAPH_THEME: Theme = GraphTheme()
 DEFAULT_CHECKBOX_THEME: Theme = CheckboxTheme()
 BUTTON_DEFAULT_THEME: Theme = ButtonTheme()
 DEFAULT_LABEL_THEME: Theme = LabelTheme()
@@ -66,7 +66,7 @@ FOOTER_HEIGHT: int = 90
 
 
 
-def draw_dashed_line(surface: pygame.surface, colour: tuple, start: tuple, end: tuple, dash_len: int=6, gap: int=6, width: int=1):
+def draw_dashed_line(surface: pygame.Surface, colour: tuple, start: tuple, end: tuple, dash_len: int=6, gap: int=6, width: int=1):
     x1, y1 = start
     x2, y2 = end
 

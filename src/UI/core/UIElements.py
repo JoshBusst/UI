@@ -1,4 +1,5 @@
 import pygame
+from pygame.transform import rotate as rotate_surf
 from datetime import datetime
 from abc import ABC, abstractmethod
 from copy import copy
@@ -32,6 +33,7 @@ class UIElement(ABC):
         self.rerender: bool = True
         self.interactable: bool = True
         self.visible: bool = True
+        self.angle: float = 0
     
     def localEvent(self, event: pygame.event.Event) -> pygame.event.Event:
         """Relativise an event position to a local rect."""
@@ -54,7 +56,9 @@ class UIElement(ABC):
         self.render()
         
         if self.visible:
-            surface.blit(self._surface, self.rect.topleft)
+            rotated = rotate_surf(self._surface, self.angle)
+            rotrect: pygame.Rect = rotated.get_rect(center=self.rect.center)
+            surface.blit(rotated, rotrect)
 
     @abstractmethod
     def render(self) -> None:
