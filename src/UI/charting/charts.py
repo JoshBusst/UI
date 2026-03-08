@@ -3,7 +3,6 @@ import pygame
 from datetime import datetime, timedelta
 from typing import List, Tuple, Optional
 
-from pygame import surface
 from UI.core.UIElements import *
 from UI.core.graphics import *
 
@@ -155,22 +154,24 @@ class Chart(Canvas):
         self._rerender = True
         self.theme: Theme = DEFAULT_GRAPH_THEME
 
-        # Labels
+        # ----- Labels -----
         self.title: Label = Label((0, 0, self.rect.width, 30), title)
+        # self.legend: Legend = Legend((0,0,100,100), legend)
+        
         self.x_label: Label = Label((0, 0, self.rect.width, 30), x_label)
         self.x_label.rect.center = (self.rect.w // 2, self.rect.h - 20)
-        self.y_label: Label = Label((0, 0, self.rect.h, 30), y_label)
-        self.y_label.angle = 90
-        self.y_label.rect.center = (20, self.rect.h // 2)
-        self.legend: Legend = Legend((0,0,100,100), legend)
 
+        self.y_label: Label = Label((0, 0, self.rect.h, 30), y_label)
+        self.y_label.rect.center = (20, self.rect.h // 2)
+        self.y_label.set_angle(90)
+        
         pad: int = 40
         self._add_elem(
+            Graph((pad,pad,self.rect.w - 2*pad,self.rect.h - 2*pad), data),
             self.title,
             self.x_label,
             self.y_label,
             # self.legend,
-            Graph((pad,pad,self.rect.w - 2*pad,self.rect.h - 2*pad), data)
         )
 
         self.padding = 60

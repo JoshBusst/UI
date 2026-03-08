@@ -34,7 +34,14 @@ class UIElement(ABC):
         self.interactable: bool = True
         self.visible: bool = True
         self.angle: float = 0
+
+        self.set_angle(self.angle)
     
+    def set_angle(self, angle: float) -> None:
+        self.angle = angle
+        self._surface = rotate_surf(self._surface, self.angle)
+        self.rect = self._surface.get_rect(center=self.rect.center)
+
     def localEvent(self, event: pygame.event.Event) -> pygame.event.Event:
         """Relativise an event position to a local rect."""
         if event.type == pygame.MOUSEMOTION:
@@ -56,9 +63,7 @@ class UIElement(ABC):
         self.render()
         
         if self.visible:
-            rotated = rotate_surf(self._surface, self.angle)
-            rotrect: pygame.Rect = rotated.get_rect(center=self.rect.center)
-            surface.blit(rotated, rotrect)
+            surface.blit(self._surface, self.rect)
 
     @abstractmethod
     def render(self) -> None:
@@ -315,6 +320,8 @@ class Label(UIElement):
 
     def render(self) -> None:
         self._surface.fill(self.theme.bg)
+        pygame.draw.rect(self._surface, (200,200,200,100), self.rect, width=2)
+
         label: pygame.Surface = self.theme.font.render(self.text, True, self.theme.text)
         self._surface.blit(label, label.get_rect(center=(self.rect.w // 2, self.rect.h // 2)))
 
@@ -358,7 +365,7 @@ class Canvas(UIElement):
 
         self.theme.bg = (0,0,0,0) # transparent for canvas, by default
         self.elems: list[UIElement] = []
-        self.forwardRelevant: bool = True # if true, only forwards events to relevant children (ie event collision)
+        self.forwardRelevant: bool = False # if true, only forwards events to relevant children (ie event collision)
 
     def _add_elem(self, *elems: UIElement) -> None:
         # elems are added relative to the canvas
@@ -526,6 +533,10 @@ class PageManager:
         if key == self.current or key == None:
             return  # don't pollute history
 
+        if page not in self.pages.keys():
+            log("[PageManager] set_page: Input key does not exist!")
+            return # dont allow invalid names
+        
         self.back_stack.append(self.current)
         self.forward_stack.clear()
         print(f"Page changed: {self.current} -> {key}")
