@@ -45,12 +45,11 @@ class Graph(UIElement):
         super().__init__(rect)
 
         self.theme: GraphTheme = copy(DEFAULT_GRAPH_THEME)
-        self.theme.small_font = pygame.font.SysFont("segoeui", 14)
         self.dataset: Dataseries = Dataseries(data)
 
         pad: int = 50
-        self._sub_rect: pygame.Rect = pygame.Rect(pad, 0, self.rect.w - pad, self.rect.h - pad)
-        self._sub_surface: pygame.Surface = pygame.Surface((self.rect.w - pad, self.rect.h - pad))
+        self._sub_rect: pygame.Rect = pygame.Rect(pad, pad, self.rect.w - pad, self.rect.h - 2*pad)
+        self._sub_surface: pygame.Surface = pygame.Surface(self._sub_rect.size, pygame.SRCALPHA)
         
     def _draw_axes(self) -> None:
         pygame.draw.line(self._surface, (200,200,200), self._sub_rect.topleft, self._sub_rect.bottomleft)
@@ -61,24 +60,28 @@ class Graph(UIElement):
         x_notches: int = 9
         y_notches: int = 9
 
-        x_step: int = self._sub_rect.w // (x_notches + 1)
-        y_step: int = self._sub_rect.h // (y_notches + 1)
+        x_step: int = (self._sub_rect.w - self._sub_rect.x) // (x_notches + 1)
+        y_step: int = (self._sub_rect.h - self._sub_rect.y) // (y_notches + 1)
 
+        draw_axis_label: bool = True
         for i in range(self._sub_rect.x + x_step, self._sub_rect.w + x_step, x_step):
-            draw_dashed_line(self._surface, (120,120,120,40), (i, self._sub_rect.h), (i, 0), width=2)
-            pygame.draw.line(self._surface, (200,200,200), (i, self._sub_rect.h - 10), (i, self._sub_rect.h + 10))
+            draw_dashed_line(self._surface, (120,120,120,40), (i, self._sub_rect.h  + self._sub_rect.y), (i, 0), width=2)
+            pygame.draw.line(self._surface, (200,200,200), (i, self._sub_rect.h  + self._sub_rect.y - 10), (i, self._sub_rect.h  + self._sub_rect.y + 10))
 
-            point: tuple = self._graph_to_point((i, self._sub_rect.h), extrema)
-            label: pygame.Surface = self.theme.small_font.render(point[0].strftime("%H:%M:%S"), True, self.theme.text)
-            self._surface.blit(label, label.get_rect(topright=(i, self._sub_rect.h + 15)))
+            if draw_axis_label:
+                point: tuple = self._graph_to_point((i, self._sub_rect.h + self._sub_rect.y), extrema)
+                label: pygame.Surface = self.theme.label_font.render(point[0].strftime("%H:%M:%S"), True, self.theme.text)
+                self._surface.blit(label, label.get_rect(center=(i, self._sub_rect.h + self._sub_rect.y + 25)))
             
-        for j in range(self._sub_rect.y, self._sub_rect.h, y_step):
+            draw_axis_label = not draw_axis_label
+        
+        for j in range(self._sub_rect.y, self._sub_rect.h + self._sub_rect.y, y_step):
             draw_dashed_line(self._surface, (120,120,120,40), (self._sub_rect.x, j), (self.rect.w, j), width=2)
             pygame.draw.line(self._surface, (200,200,200), (self._sub_rect.x - 10, j), (self._sub_rect.x + 10, j))
             
             point: tuple = self._graph_to_point((self._sub_rect.x, j), extrema)
-            label: pygame.Surface = self.theme.small_font.render(str(int(point[1])), True, self.theme.text)
-            self._surface.blit(label, label.get_rect(topleft=(10, j)))
+            label: pygame.Surface = self.theme.label_font.render(str(int(point[1])), True, self.theme.text)
+            self._surface.blit(label, label.get_rect(center=(self._sub_rect.x-25, j)))
 
     def _point_to_graph(self, point: tuple, extrema: tuple) -> float:
         vmin, vmax, vrng, tstart, tend, trng = extrema
@@ -113,7 +116,9 @@ class Graph(UIElement):
 
     def render(self) -> None:
         self._surface.fill(self.theme.bg)
-        self._sub_surface.fill(self.theme.panel)
+        self._surface.fill(self.theme.panel, self._sub_rect)
+
+        self._sub_surface.fill((0,0,0,0))
 
         # draw the main graph
         graph_points: list[tuple] = self._convert_points(self.dataset)
@@ -121,8 +126,8 @@ class Graph(UIElement):
         pygame.draw.aalines(self._sub_surface, self.theme.muted, False, graph_points)
         self._draw_point_dots(self._sub_surface, graph_points)
 
-        self._surface.blit(self._sub_surface, self._sub_rect)
         self._draw_axes()
+        self._surface.blit(self._sub_surface, self._sub_rect)
 
     def handle_event(self, event: pygame.event.Event) -> None:
         pass
@@ -131,6 +136,7 @@ class Legend(Canvas):
     def __init__(self, rect: tuple, entries: List[str]):
         super().__init__(rect)
         self.entries = entries
+
 
 
 class Chart(Canvas):
@@ -158,7 +164,7 @@ class Chart(Canvas):
         self.y_label.rect.center = (20, self.rect.h // 2)
         self.legend: Legend = Legend((0,0,100,100), legend)
 
-        pad: int = 80
+        pad: int = 40
         self._add_elem(
             self.title,
             self.x_label,
