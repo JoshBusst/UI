@@ -19,6 +19,7 @@ MOUSE_BUTTON_MID: int = 2
 MOUSE_BUTTON_RIGHT: int = 3
 MOUSE_EVENTS: tuple = (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION)
 
+edit_mode: bool = False
 
 
 
@@ -64,6 +65,9 @@ class UIElement(ABC):
         
         if self.visible:
             surface.blit(self._surface, self.rect)
+
+        if edit_mode:
+            pygame.draw.rect(surface, (50, 250, 50), self.rect, width=1)
 
     @abstractmethod
     def render(self) -> None:
@@ -119,6 +123,9 @@ class Button(UIElement):
         
         if self.visible:
             surface.blit(self._surface, self._anim_rect.topleft)
+
+        if edit_mode:
+            pygame.draw.rect(surface, (50, 250, 50), self.rect, width=1)
 
     def handle_event(self, event: pygame.event.Event) -> bool:
         if event.type not in [pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION] or not self.interactable:
@@ -320,7 +327,7 @@ class Label(UIElement):
 
     def render(self) -> None:
         self._surface.fill(self.theme.bg)
-        pygame.draw.rect(self._surface, (200,200,200,100), self.rect, width=2)
+        # pygame.draw.rect(self._surface, (200,200,200,100), self.rect, width=2)
 
         label: pygame.Surface = self.theme.font.render(self.text, True, self.theme.text)
         self._surface.blit(label, label.get_rect(center=(self.rect.w // 2, self.rect.h // 2)))
