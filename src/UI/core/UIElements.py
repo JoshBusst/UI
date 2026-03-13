@@ -533,14 +533,14 @@ class PageManager:
         if key == self.current or key == None:
             return  # don't pollute history
 
-        if page not in self.pages.keys():
+        if key not in self.pages.keys():
             log("[PageManager] set_page: Input key does not exist!")
             return # dont allow invalid names
         
         if self.current is not None:
             self.back_stack.append(self.current)
             self.forward_stack.clear()
-            
+
         print(f"Page changed: {self.current} -> {key}")
         self.current = key
 
