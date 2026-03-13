@@ -537,8 +537,10 @@ class PageManager:
             log("[PageManager] set_page: Input key does not exist!")
             return # dont allow invalid names
         
-        self.back_stack.append(self.current)
-        self.forward_stack.clear()
+        if self.current is not None:
+            self.back_stack.append(self.current)
+            self.forward_stack.clear()
+            
         print(f"Page changed: {self.current} -> {key}")
         self.current = key
 

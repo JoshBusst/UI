@@ -37,7 +37,7 @@ if __name__ == "__main__":
     pygame.display.set_caption("Graphics Test")
     CLOCK = pygame.time.Clock()
 
-    page1: DefaultPage = Page("Page 1", (SCREEN_WIDTH, SCREEN_HEIGHT))
+    page1: DefaultPage = DefaultPage("Page 1", (SCREEN_WIDTH, SCREEN_HEIGHT))
     # page2: DefaultPage = DefaultPage("Page 2", (SCREEN_WIDTH, SCREEN_HEIGHT))
     # page3: DefaultPage = DefaultPage("Page 3", (SCREEN_WIDTH, SCREEN_HEIGHT))
 
