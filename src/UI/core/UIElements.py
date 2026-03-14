@@ -19,7 +19,7 @@ MOUSE_BUTTON_MID: int = 2
 MOUSE_BUTTON_RIGHT: int = 3
 MOUSE_EVENTS: tuple = (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION)
 
-edit_mode: bool = False
+edit_mode: bool = True
 
 
 

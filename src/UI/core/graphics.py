@@ -53,7 +53,7 @@ class ButtonTheme(Theme):
 class LabelTheme(Theme):
     bg: tuple = (0,0,0,0)
     border: tuple = (200,200,200,30)
-    font: tuple = pygame.font.SysFont("segoeui", 32, bold=True)
+    font: tuple = pygame.font.SysFont("segoeui", 14, bold=True)
 
 
 
