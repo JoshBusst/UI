@@ -6,6 +6,24 @@ pygame.init()
 
 
 
+
+''' overhaul themeing. immutable default theme type. Same structure
+new themes are created from an empty theme, given params to know which of the default theme
+elements it should inherit IE:
+
+self.theme = Theme(
+    bg,
+    elem,
+    panel,
+    text,
+)
+
+And this takes elems from default.g, default.elem, etc to create a slimmed down theme
+Passing this way also means these are the default values which are kept registerd
+If no default.panel, newTheme.panel is (0,0,0,0)
+'''
+
+
 # ==================== DEFAULT_THEME ====================
 class Theme:
     # static themes

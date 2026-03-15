@@ -34,14 +34,6 @@ class UIElement(ABC):
         self.rerender: bool = True
         self.interactable: bool = True
         self.visible: bool = True
-        self.angle: float = 0
-
-        self.set_angle(self.angle)
-    
-    def set_angle(self, angle: float) -> None:
-        self.angle = angle
-        self._surface = rotate_surf(self._surface, self.angle)
-        self.rect = self._surface.get_rect(center=self.rect.center)
 
     def localEvent(self, event: pygame.event.Event) -> pygame.event.Event:
         """Relativise an event position to a local rect."""

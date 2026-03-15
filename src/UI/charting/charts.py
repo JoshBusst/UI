@@ -152,7 +152,7 @@ class Chart(Canvas):
 
         self._surface = pygame.Surface(self.rect.size, pygame.SRCALPHA)
         self._rerender = True
-        self.theme: Theme = DEFAULT_GRAPH_THEME
+        self.theme: GraphTheme = DEFAULT_GRAPH_THEME
 
         # ----- Labels -----
         self.title: Label = Label((0, 0, self.rect.width, 30), title)
@@ -161,16 +161,16 @@ class Chart(Canvas):
         self.x_label: Label = Label((0, 0, self.rect.width, 30), x_label)
         self.x_label.rect.center = (self.rect.w // 2, self.rect.h - 20)
 
-        self.y_label: Label = Label((0, 0, self.rect.h, 30), y_label)
-        self.y_label.rect.center = (20, self.rect.h // 2)
-        self.y_label.set_angle(90)
+        self.y_label: str = y_label
+        # self.y_label: Label = Label((0, 0, self.rect.h, 30), y_label)
+        # self.y_label.rect.center = (20, self.rect.h // 2)
         
         pad: int = 40
         self._add_elem(
             Graph((pad,pad,self.rect.w - 2*pad,self.rect.h - 2*pad), data),
             self.title,
             self.x_label,
-            self.y_label,
+            # self.y_label,
             # self.legend,
         )
 
@@ -190,3 +190,9 @@ class Chart(Canvas):
     def handle_event(self, event: pygame.event.Event) -> None:
         pass
 
+    def render(self) -> None:
+        super().render()
+
+        label: pygame.Surface = self.theme.label_font.render(self.y_label, True, self.theme.text)
+        label = rotate_surf(label,90)
+        self._surface.blit(label, label.get_rect(center=(25, self.rect.h // 2)))
