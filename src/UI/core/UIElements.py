@@ -13,13 +13,19 @@ pygame.init()
 
 
 
+'''
+Need to add a scroll pane
+
+'''
+
+
 # ---------- Mouse Button ----------
 MOUSE_BUTTON_LEFT: int = 1
 MOUSE_BUTTON_MID: int = 2
 MOUSE_BUTTON_RIGHT: int = 3
 MOUSE_EVENTS: tuple = (pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP, pygame.MOUSEMOTION)
 
-edit_mode: bool = True
+edit_mode: bool = False
 
 
 
